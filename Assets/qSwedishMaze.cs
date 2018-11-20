@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using UnityEngine;
@@ -35,6 +36,10 @@ public class qSwedishMaze : MonoBehaviour
 
     bool pressedAllowed = false;
 
+    // TWITCH PLAYS SUPPORT
+    int tpStages;
+    // TWITCH PLAYS SUPPORT
+
     Color[] colory = { new Color(0.0f, 0.4f, 0.75f), new Color(1f, 0.85f, 0f) };
 
     void Start()
@@ -45,6 +50,7 @@ public class qSwedishMaze : MonoBehaviour
 
     void Init()
     {
+        tpStages = 0;
 		currentPath = "";
         solutionNumber = 0;
 		furnitureButton = UnityEngine.Random.Range(0, 5);
@@ -63,7 +69,7 @@ public class qSwedishMaze : MonoBehaviour
             {
                 pickedBrand[i] = pickedFurniture;
                 buttonText.text = pickedFurniture;
-                Debug.LogFormat("[IKEA #{0}] Button number {1} is {2} and is furniture: {3}.", _moduleId, i + 1, isYellow[i] == 1? "yellow" : "blue", pickedFurniture);
+                Debug.LogFormat("[IKEA #{0}] Button number {1} is {2} and is a product: {3}.", _moduleId, i + 1, isYellow[i] == 1? "yellow" : "blue", pickedFurniture);
 				
 				if (isYellow[i] == 1)
 				{
@@ -131,6 +137,60 @@ public class qSwedishMaze : MonoBehaviour
         pressedAllowed = true;
     }
 
+#pragma warning disable 414
+    private readonly string TwitchHelpMessage = @"Press the correct buttons with !{0} press 1 2 3 4 5 with a space in between numbers. You can substitute 'press' with 'p'.";
+    private readonly bool TwitchShouldCancelCommand = false;
+#pragma warning restore 414
+
+    private IEnumerator ProcessTwitchCommand(string command)
+    {
+        var pieces = command.Trim().ToLowerInvariant().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+
+        string theError;
+
+        //Debug.Log(pieces.Count());
+        //Debug.Log(pieces.Length);
+
+        if (pieces.Count() <= 1)
+        {
+            theError = "sendtochat Not enough arguments! You need at least 'press' or 'p', then one or more numbers, separated by spaces.";
+            yield return theError;
+        }
+        else if (pieces[0] != "press" && pieces[0] != "p")
+        {
+            theError = "sendtochat You made a boo boo! Command '" + pieces[1] + "' is invalid. You must 'press' or 'p'.";
+            yield return theError;
+        }
+        else if ((pieces.Count() > 1))
+        {
+            tpStages = pieces.Length - 1;
+            //Debug.Log(pieces.Length - tpStages);
+            while (tpStages > 0)
+            {
+                yield return new WaitForSeconds(.1f);
+                if (pieces[pieces.Count() - tpStages] == "1" || pieces[pieces.Count() - tpStages] == "2" || pieces[pieces.Count() - tpStages] == "3"
+                    || pieces[pieces.Count() - tpStages] == "4" || pieces[pieces.Count() - tpStages] == "5")
+                {
+                    OnRelease(Int32.Parse(pieces[pieces.Count() - tpStages]) - 1);
+                    tpStages--;
+
+                }
+                else
+                {
+                    tpStages = 0;
+                    theError = "sendtochat You made a boo boo! Previous stages entered, but 'press' command '" + pieces[(pieces.Length - tpStages) - 1] + 
+                        "' is invalid. You must 'press' a number from 1 to 5.";
+                    yield return theError;
+                }
+
+            }
+            yield return null;
+        }
+        
+    }
+
+
+
     void OnPress()
     {
         GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, transform);
@@ -142,7 +202,8 @@ public class qSwedishMaze : MonoBehaviour
         if (pressedAllowed)
         {
             currentPath = currentPath + direction[pressedButton];
-            if (currentPath.Length >= 2 && (currentPath.Substring(currentPath.Length - 2, 2) == "EW" || currentPath.Substring(currentPath.Length - 2, 2) == "WE" || currentPath.Substring(currentPath.Length - 2, 2) == "SN" || currentPath.Substring(currentPath.Length - 2, 2) == "NS"))
+            if (currentPath.Length >= 2 && (currentPath.Substring(currentPath.Length - 2, 2) == "EW" || currentPath.Substring(currentPath.Length - 2, 2) == "WE" || 
+                currentPath.Substring(currentPath.Length - 2, 2) == "SN" || currentPath.Substring(currentPath.Length - 2, 2) == "NS"))
             {
                 currentPath = currentPath.Substring(0, currentPath.Length - 2);
                 Debug.LogFormat("[IKEA #{0}] Went back. Current path = {1}", _moduleId, currentPath);
@@ -154,12 +215,14 @@ public class qSwedishMaze : MonoBehaviour
                 if (correctPath.Substring(0, currentPath.Length) != currentPath)
                 {
                     Debug.LogFormat("[IKEA #{0}] Mismatch, that's a strike! Resetting input.", _moduleId);
+                    tpStages = 0;
                     currentPath = "";
                     GetComponent<KMBombModule>().HandleStrike();
                 }
                 if (currentPath == correctPath)
                 {
                     Debug.LogFormat("[IKEA #{0}] That's the finish line! Module solved at {1}!", _moduleId, bomb.GetFormattedTime());
+                    tpStages = 0;
                     pressedAllowed = false;
                     GetComponent<KMBombModule>().HandlePass();
                 }
