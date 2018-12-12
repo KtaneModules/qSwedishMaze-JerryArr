@@ -11,7 +11,9 @@ public class qSwedishMaze : MonoBehaviour
     public KMSelectable[] buttons;
     public MeshRenderer[] meshNum;
     public KMBombInfo bomb;
-    public new KMAudio audio;
+    public KMSelectable swedish;
+
+    //public new KMAudio audio;
 
     int furnitureButton;
     int furnitureNumber;
@@ -46,6 +48,7 @@ public class qSwedishMaze : MonoBehaviour
     {
         _moduleId = _moduleIdCounter++;
         Init();
+        //GetComponent<KMBombModule>().OnActivate += ActivateModule;
     }
 
     void Init()
@@ -109,11 +112,25 @@ public class qSwedishMaze : MonoBehaviour
             }
         }
         int curDirection = 0;
-        buttons[0].OnInteractEnded += delegate () { OnRelease(0); buttons[0].AddInteractionPunch(0.2f); };
-        buttons[1].OnInteractEnded += delegate () { OnRelease(1); buttons[1].AddInteractionPunch(0.2f); };
-        buttons[2].OnInteractEnded += delegate () { OnRelease(2); buttons[2].AddInteractionPunch(0.2f); };
-        buttons[3].OnInteractEnded += delegate () { OnRelease(3); buttons[3].AddInteractionPunch(0.2f); };
-        buttons[4].OnInteractEnded += delegate () { OnRelease(4); buttons[4].AddInteractionPunch(0.2f); };
+        buttons[0].OnInteractEnded += delegate () { OnRelease(); };
+        buttons[1].OnInteractEnded += delegate () { OnRelease(); };
+        buttons[2].OnInteractEnded += delegate () { OnRelease(); };
+        buttons[3].OnInteractEnded += delegate () { OnRelease(); };
+        buttons[4].OnInteractEnded += delegate () { OnRelease(); };
+        //swedish.OnInteractEnded += delegate () { OnRelease(); swedish.AddInteractionPunch(0.3f); };
+        swedish.OnInteractEnded += delegate () { OnRelease(); };
+
+        /* buttons [0].OnInteract += delegate () { buttons[0].AddInteractionPunch(0.2f); ChangeDisplay(0, -1); return false; }; */
+
+        buttons[0].OnInteract += delegate () { OnPress(0); buttons[0].AddInteractionPunch(0.2f); return false; };
+        buttons[1].OnInteract += delegate () { OnPress(1); buttons[1].AddInteractionPunch(0.2f); return false; };
+        buttons[2].OnInteract += delegate () { OnPress(2); buttons[2].AddInteractionPunch(0.2f); return false; };
+        buttons[3].OnInteract += delegate () { OnPress(3); buttons[3].AddInteractionPunch(0.2f); return false; };
+        buttons[4].OnInteract += delegate () { OnPress(4); buttons[4].AddInteractionPunch(0.2f); return false; };
+
+        //swedish.OnInteract += delegate () { pressFlag(); swedish.AddInteractionPunch(0.3f); return false; };
+        swedish.OnInteract += delegate () { OnPress(9); swedish.AddInteractionPunch(0.2f); return false; };
+
         for (int l = 0; l < 16; l++)
         {
             for (int m = 0; m < 5; m++)
@@ -138,7 +155,7 @@ public class qSwedishMaze : MonoBehaviour
     }
 
 #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"Press the correct buttons with !{0} press 1 2 3 4 5 with a space in between numbers. You can substitute 'press' with 'p'.";
+    private readonly string TwitchHelpMessage = @"Press the correct buttons with !{0} press 1 2 3 4 5 with a space in between numbers. You can substitute 'press' with 'p'. Reset your progess with !{0} reset/r/flag/f";
     private readonly bool TwitchShouldCancelCommand = false;
 #pragma warning restore 414
 
@@ -151,17 +168,17 @@ public class qSwedishMaze : MonoBehaviour
         //Debug.Log(pieces.Count());
         //Debug.Log(pieces.Length);
 
-        if (pieces.Count() <= 1)
+        if (pieces.Count() == 1 && pieces[0] != "flag" && pieces[0] != "f" && pieces[0] != "reset" && pieces[0] != "r")
         {
-            theError = "sendtochat Not enough arguments! You need at least 'press' or 'p', then one or more numbers, separated by spaces.";
+            theError = "sendtochaterror Invalid argument! To submit you need at least 'press' or 'p', then one or more numbers, separated by spaces. To reset you need 'flag', 'f', 'reset', or 'r'.";
             yield return theError;
         }
-        else if (pieces[0] != "press" && pieces[0] != "p")
+        else if (pieces.Count() == 0)
         {
-            theError = "sendtochat You made a boo boo! Command '" + pieces[1] + "' is invalid. You must 'press' or 'p'.";
+            theError = "sendtochaterror No arguments! To submit you need at least 'press' or 'p', then one or more numbers, separated by spaces. To reset you need 'flag', 'f', 'reset', or 'r'.";
             yield return theError;
         }
-        else if ((pieces.Count() > 1))
+        else if ((pieces.Count() > 1) && (pieces[0] == "press" || pieces[0] == "p"))
         {
             tpStages = pieces.Length - 1;
             //Debug.Log(pieces.Length - tpStages);
@@ -171,14 +188,16 @@ public class qSwedishMaze : MonoBehaviour
                 if (pieces[pieces.Count() - tpStages] == "1" || pieces[pieces.Count() - tpStages] == "2" || pieces[pieces.Count() - tpStages] == "3"
                     || pieces[pieces.Count() - tpStages] == "4" || pieces[pieces.Count() - tpStages] == "5")
                 {
-                    OnRelease(Int32.Parse(pieces[pieces.Count() - tpStages]) - 1);
+                    var buttonPicked = Int32.Parse(pieces[pieces.Count() - tpStages]) - 1;
+                    yield return null;
+                    buttons[buttonPicked].OnInteract();
                     tpStages--;
 
                 }
                 else
                 {
                     tpStages = 0;
-                    theError = "sendtochat You made a boo boo! Previous stages entered, but 'press' command '" + pieces[(pieces.Length - tpStages) - 1] + 
+                    theError = "sendtochaterror You made a boo boo! Previous stages entered, but 'press' command '" + pieces[(pieces.Length - tpStages) - 1] +
                         "' is invalid. You must 'press' a number from 1 to 5.";
                     yield return theError;
                 }
@@ -186,51 +205,84 @@ public class qSwedishMaze : MonoBehaviour
             }
             yield return null;
         }
-        
+        else if (pieces[0] == "flag" || pieces[0] == "f" || pieces[0] == "reset" || pieces[0] == "r")
+        {
+            yield return null;
+            swedish.OnInteract();
+        }
+        else if (pieces[0] != "press" && pieces[0] != "p")
+        {
+            theError = "sendtochaterror You made a boo boo! Command '" + pieces[0] + "' is invalid. You must 'press', 'p', 'flag', 'f', 'reset', or 'r'.";
+            yield return theError;
+        }
+        else
+        {
+            tpStages = 0;
+            theError = "sendtochaterror You didn't send any buttons to 'press'!";
+            yield return theError;
+        }
+
     }
 
-
-
-    void OnPress()
+   /* void pressFlag()
     {
         GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, transform);
-    }
+        
+    }*/
 
-    void OnRelease(int pressedButton)
+    void OnPress(int pressedButton)
     {
-        GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonRelease, transform);
+        GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, transform);
+
         if (pressedAllowed)
         {
-            currentPath = currentPath + direction[pressedButton];
-            if (currentPath.Length >= 2 && (currentPath.Substring(currentPath.Length - 2, 2) == "EW" || currentPath.Substring(currentPath.Length - 2, 2) == "WE" || 
-                currentPath.Substring(currentPath.Length - 2, 2) == "SN" || currentPath.Substring(currentPath.Length - 2, 2) == "NS"))
+            if (pressedButton == 9)
             {
-                currentPath = currentPath.Substring(0, currentPath.Length - 2);
-                Debug.LogFormat("[IKEA #{0}] Went back. Current path = {1}", _moduleId, currentPath);
+                currentPath = "";
             }
             else
             {
-                Debug.LogFormat("[IKEA #{0}] Current path = {1}, Correct path (so far) = {2}", _moduleId, currentPath, correctPath.Substring(0, currentPath.Length));
-
-                if (correctPath.Substring(0, currentPath.Length) != currentPath)
+                currentPath = currentPath + direction[pressedButton];
+                if (currentPath.Length >= 2 && (currentPath.Substring(currentPath.Length - 2, 2) == "EW" || currentPath.Substring(currentPath.Length - 2, 2) == "WE" ||
+                    currentPath.Substring(currentPath.Length - 2, 2) == "SN" || currentPath.Substring(currentPath.Length - 2, 2) == "NS"))
                 {
-                    Debug.LogFormat("[IKEA #{0}] Mismatch, that's a strike! Resetting input.", _moduleId);
-                    tpStages = 0;
-                    currentPath = "";
-                    GetComponent<KMBombModule>().HandleStrike();
+                    currentPath = currentPath.Substring(0, currentPath.Length - 2);
+                    //Debug.LogFormat("[IKEA #{0}] Went back. Current path = {1}", _moduleId, currentPath);
                 }
-                if (currentPath == correctPath)
+                else
                 {
-                    Debug.LogFormat("[IKEA #{0}] That's the finish line! Module solved at {1}!", _moduleId, bomb.GetFormattedTime());
-                    tpStages = 0;
-                    pressedAllowed = false;
-                    GetComponent<KMBombModule>().HandlePass();
+
+
+                    if (correctPath.Substring(0, currentPath.Length) != currentPath)
+                    {
+                        Debug.LogFormat("[IKEA #{0}] Current path = {1}, Correct path (so far) = {2}", _moduleId, currentPath, correctPath.Substring(0, currentPath.Length));
+                        Debug.LogFormat("[IKEA #{0}] Mismatch, that's a strike! (You pressed button {1}, which was {2}.) Resetting input.",
+                            _moduleId, (pressedButton + 1), direction[pressedButton]);
+                        tpStages = 0;
+                        currentPath = "";
+                        GetComponent<KMBombModule>().HandleStrike();
+                    }
+                    if (currentPath == correctPath)
+                    {
+                        Debug.LogFormat("[IKEA #{0}] Current path = {1}, Correct path = {2}", _moduleId, currentPath, correctPath.Substring(0, currentPath.Length));
+                        Debug.LogFormat("[IKEA #{0}] That's the finish line! Module solved at {1}!", _moduleId, bomb.GetFormattedTime());
+                        tpStages = 0;
+                        pressedAllowed = false;
+                        GetComponent<KMBombModule>().HandlePass();
+                    }
+
                 }
 
+                return;
             }
-
-            return;
+            
         }
+    }
+
+    void OnRelease()
+    {
+        GetComponent<KMAudio>().PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonRelease, transform);
+
 
     }
 
